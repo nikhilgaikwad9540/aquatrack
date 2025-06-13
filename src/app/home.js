@@ -193,7 +193,7 @@ export default function HomePage() {
 
         <Link href="/report">
         <button className="bg-purple-600 text-white px-4 py-2 rounded mt-4">
-          📊 Show Today's Report
+          📊 Show Today Report
         </button>
       </Link>
 

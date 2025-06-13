@@ -75,7 +75,7 @@ export default function ReportPage() {
   return (
     <div className="max-w-xl mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-6 text-purple-700">
-        📊 Today's Report
+        📊 Today Report
       </h1>
 
       {loading ? (
