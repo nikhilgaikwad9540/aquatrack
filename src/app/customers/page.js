@@ -1,41 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { useAuthState } from "react-firebase-hooks/auth";
 import {
   collection,
   getDocs,
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import HistoryModal from "../components/HistoryModal"; // Make sure this path is correct
+import HistoryModal from "../components/HistoryModal";
 
 export default function CustomersPage() {
+  const [user] = useAuthState(auth);
   const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   useEffect(() => {
     const fetchCustomers = async () => {
+      if (!user) return;
+
       try {
-        const querySnapshot = await getDocs(collection(db, "customers"));
+        const querySnapshot = await getDocs(
+          collection(db, "users", user.uid, "customers")
+        );
+
         const data = await Promise.all(
           querySnapshot.docs.map(async (doc) => {
             const customerData = doc.data();
             const bottlePrice = customerData.bottlePrice || 0;
 
-            // Deliveries
             const deliveriesSnapshot = await getDocs(
-              collection(db, "customers", doc.id, "deliveries")
+              collection(db, "users", user.uid, "customers", doc.id, "deliveries")
             );
             let totalBottles = 0;
             deliveriesSnapshot.forEach((deliveryDoc) => {
               totalBottles += deliveryDoc.data().bottles || 0;
             });
 
-            // Payments
             const paymentsSnapshot = await getDocs(
-              collection(db, "customers", doc.id, "payments")
+              collection(db, "users", user.uid, "customers", doc.id, "payments")
             );
             let totalPaid = 0;
             paymentsSnapshot.forEach((paymentDoc) => {
@@ -56,6 +63,7 @@ export default function CustomersPage() {
           })
         );
         setCustomers(data);
+        setFilteredCustomers(data);
       } catch (error) {
         console.error("Error fetching customers:", error);
       } finally {
@@ -64,7 +72,18 @@ export default function CustomersPage() {
     };
 
     fetchCustomers();
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtered = customers.filter(
+      (cust) =>
+        cust.name.toLowerCase().includes(query) ||
+        cust.building.toLowerCase().includes(query) ||
+        cust.contact.toLowerCase().includes(query)
+    );
+    setFilteredCustomers(filtered);
+  }, [searchQuery, customers]);
 
   const handleAddBottle = async (customerId) => {
     const bottles = prompt("Enter number of bottles delivered:");
@@ -76,15 +95,16 @@ export default function CustomersPage() {
     }
 
     try {
-      await addDoc(collection(db, "customers", customerId, "deliveries"), {
-        bottles: count,
-        date: serverTimestamp(),
-      });
-
-      alert("Bottle entry added successfully! Please refresh to see updates.");
+      await addDoc(
+        collection(db, "users", user.uid, "customers", customerId, "deliveries"),
+        {
+          bottles: count,
+          date: serverTimestamp(),
+        }
+      );
+      alert("Bottle entry added successfully! Please refresh.");
     } catch (error) {
       console.error("Error adding delivery:", error);
-      alert("Failed to add delivery.");
     }
   };
 
@@ -98,15 +118,16 @@ export default function CustomersPage() {
     }
 
     try {
-      await addDoc(collection(db, "customers", customerId, "payments"), {
-        amount: amt,
-        date: serverTimestamp(),
-      });
-
-      alert("Payment recorded successfully! Please refresh to see updates.");
+      await addDoc(
+        collection(db, "users", user.uid, "customers", customerId, "payments"),
+        {
+          amount: amt,
+          date: serverTimestamp(),
+        }
+      );
+      alert("Payment recorded successfully! Please refresh.");
     } catch (error) {
       console.error("Error recording payment:", error);
-      alert("Failed to record payment.");
     }
   };
 
@@ -114,14 +135,22 @@ export default function CustomersPage() {
     <div className="max-w-7xl mx-auto mt-10 p-4">
       <h2 className="text-2xl font-bold mb-4">All Customers</h2>
 
+      <input
+        type="text"
+        placeholder="Search by name, building, or contact"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="mb-4 p-2 border border-gray-300 rounded w-full max-w-md"
+      />
+
       {loading ? (
         <p>Loading...</p>
-      ) : customers.length === 0 ? (
+      ) : filteredCustomers.length === 0 ? (
         <p>No customers found.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full border text-sm text-left">
-            <thead className="bg-gray-100">
+            <thead className="bg-gray-100 text-red-800">
               <tr>
                 <th className="px-4 py-2 border">Name</th>
                 <th className="px-4 py-2 border">Bldg</th>
@@ -137,7 +166,7 @@ export default function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {customers.map((cust) => (
+              {filteredCustomers.map((cust) => (
                 <tr key={cust.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 border">{cust.name}</td>
                   <td className="px-4 py-2 border">{cust.building}</td>

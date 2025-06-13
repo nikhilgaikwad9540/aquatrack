@@ -4,6 +4,8 @@ import { useState } from "react";
 // import { db } from "@/lib/firebase";
 import { db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../context/auth-context"; // path may vary
+
 
 export default function AddCustomerPage() {
   const [form, setForm] = useState({
@@ -13,6 +15,8 @@ export default function AddCustomerPage() {
     contact: "",
     bottlePrice: "",
   });
+
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
@@ -26,7 +30,7 @@ export default function AddCustomerPage() {
     setLoading(true);
 
     try {
-      await addDoc(collection(db, "customers"), {
+      await addDoc(collection(db,"users", user.uid, "customers"), {
         ...form,
         bottlePrice: Number(form.bottlePrice),
         createdAt: serverTimestamp(),
@@ -50,9 +54,9 @@ export default function AddCustomerPage() {
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 border rounded-lg shadow bg-white">
-      <h2 className="text-2xl font-semibold mb-4">Add New Customer</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-indigo-800">Add New Customer</h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-black">
         {["name", "building", "room", "contact", "bottlePrice"].map((field) => (
           <input
             key={field}

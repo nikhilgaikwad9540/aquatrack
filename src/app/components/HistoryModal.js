@@ -1,40 +1,46 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { useAuth } from "../../context/auth-context"; // 👈 make sure you have auth context
 
 export default function HistoryModal({ isOpen, onClose, customer }) {
   const [history, setHistory] = useState({ deliveries: [], payments: [] });
+  const { user } = useAuth(); // 👈 Get current signed-in user
 
   useEffect(() => {
-    if (!customer) return;
+    if (!customer || !user?.uid) return;
 
     const fetchHistory = async () => {
-      const [paymentsSnapshot, deliveriesSnapshot] = await Promise.all([
-        getDocs(collection(db, "customers", customer.id, "payments")),
-        getDocs(collection(db, "customers", customer.id, "deliveries")),
-      ]);
+      try {
+        const [paymentsSnapshot, deliveriesSnapshot] = await Promise.all([
+          getDocs(collection(db, "users", user.uid, "customers", customer.id, "payments")),
+          getDocs(collection(db, "users", user.uid, "customers", customer.id, "deliveries")),
+        ]);
 
-      const payments = paymentsSnapshot.docs.map((doc) => {
-        const d = doc.data();
-        return {
-          amount: d.amount,
-          date: d.date?.toDate()?.toLocaleDateString() || "No Date",
-        };
-      });
+        const payments = paymentsSnapshot.docs.map((doc) => {
+          const d = doc.data();
+          return {
+            amount: d.amount,
+            date: d.date?.toDate()?.toLocaleDateString() || "No Date",
+          };
+        });
 
-      const deliveries = deliveriesSnapshot.docs.map((doc) => {
-        const d = doc.data();
-        return {
-          bottles: d.bottles,
-          date: d.date?.toDate()?.toLocaleDateString() || "No Date",
-        };
-      });
+        const deliveries = deliveriesSnapshot.docs.map((doc) => {
+          const d = doc.data();
+          return {
+            bottles: d.bottles,
+            date: d.date?.toDate()?.toLocaleDateString() || "No Date",
+          };
+        });
 
-      setHistory({ deliveries, payments });
+        setHistory({ deliveries, payments });
+      } catch (error) {
+        console.error("❌ Error fetching history:", error.message);
+      }
     };
 
     fetchHistory();
-  }, [customer]);
+  }, [customer, user]);
 
   if (!isOpen || !customer) return null;
 
@@ -46,12 +52,12 @@ export default function HistoryModal({ isOpen, onClose, customer }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-lg">
-        <h2 className="text-xl font-bold mb-2">
+        <h2 className="text-xl font-bold mb-2 text-indigo-600">
           📜 History for {customer.name}
         </h2>
 
         <div className="mb-4">
-          <h3 className="font-semibold">🚚 Deliveries</h3>
+          <h3 className="font-semibold text-black">🚚 Deliveries</h3>
           <ul className="list-disc list-inside text-sm text-gray-700">
             {history.deliveries.length > 0 ? (
               history.deliveries.map((d, i) => (
@@ -64,7 +70,7 @@ export default function HistoryModal({ isOpen, onClose, customer }) {
         </div>
 
         <div className="mb-4">
-          <h3 className="font-semibold">💰 Payments</h3>
+          <h3 className="font-semibold text-black">💰 Payments</h3>
           <ul className="list-disc list-inside text-sm text-gray-700">
             {history.payments.length > 0 ? (
               history.payments.map((p, i) => (
